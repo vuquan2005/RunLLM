@@ -1,0 +1,14 @@
+{
+  "ID": "0167343682284415AF592A37253E75AA",
+  "ActionKeyword": "runllm",
+  "IsGlobal": false,
+  "Name": "RunLLM",
+  "Author": "VuQuan",
+  "Version": "0.87.0",
+  "Language": "csharp",
+  "Website": "https://github.com/VuQuan/Community.PowerToys.Run.Plugin.RunLLM",
+  "ExecuteFileName": "Community.PowerToys.Run.Plugin.RunLLM.dll",
+  "IcoPathDark": "Images\\runllm.dark.png",
+  "IcoPathLight": "Images\\runllm.light.png",
+  "DynamicLoading": false
+}
