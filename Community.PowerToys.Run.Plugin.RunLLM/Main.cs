@@ -212,7 +212,7 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
                     {
                         Clipboard.SetText(responseText);
                         Context.API.ShowMsg($"Response by: {DfModel}", responseText);
-                        responseText = "null";
+                        responseText = "";
                         return true;
                     }
                 }];
