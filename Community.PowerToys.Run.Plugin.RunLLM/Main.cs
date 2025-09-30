@@ -54,9 +54,9 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
             {
                 Key = "DfModel",
                 DisplayLabel = "Default model",
-                DisplayDescription = "Your default model. Ex. qwen3",
+                DisplayDescription = "Your default model when you restart Powertoys. Ex. qwen/qwen3-4b",
                 PluginOptionType = PluginAdditionalOption.AdditionalOptionType.Textbox,
-                TextValue = "qwen3",
+                TextValue = "qwen/qwen3-4b",
             },
             new PluginAdditionalOption()
             {
@@ -166,87 +166,29 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
             return results;
         }
 
-        private static bool isChooseModel = false;
-        private static bool isWaitingForGetListModel = false;
-        private static bool isWaitingForResponse = false;
+        enum QueryState
+        {
+            Idle,
+            WaitingResponse,
+            ShowResponse,
+            ChoosingModel,
+            GetListOfModels,
+            ChangingThinkingMode,
+        }
+
+        private QueryState currentState = QueryState.Idle;
         private short waited = 0;
-        private static string responseText = "";
-        List<string> modelNames = new List<string>();
+        private string responseText = "";
+        private List<string> modelNames = new();
         public List<Result> Query(Query query, bool delayedExecution)
         {
             var search = query.Search;
-
-
             List<Result> results = new List<Result>();
-            if (isWaitingForResponse)
-            {
-                waited += 1;
-                _ = Task.Run(async () =>
-                {
-                    await Task.Delay(1000);
-                    Context.API.ChangeQuery($"{Context.CurrentPluginMetadata.ActionKeyword} " + search, requery: true);
-                });
-                return [new Result
-                {
-                    Title = search,
-                    SubTitle = $"Waited : {waited}s. Cancel the task by pressing enter.",
-                    IcoPath = IconPath,
-                    Action = e =>
-                    {
-                        // Cancel task, will do later
-                        //waited = 0;
-                        //responseText = "";
-                        return true;
-                    }
-                }];
-            }
-            else if (waited > 0 || responseText != "")
-            {
-                waited = 0;
-                return [new Result
-                {
-                    Title = $"Response by: {DfModel}:",
-                    SubTitle = responseText,
-                    IcoPath = IconPath,
-                    Action = e =>
-                    {
-                        Clipboard.SetText(responseText);
-                        Context.API.ShowMsg($"Response by: {DfModel}", responseText);
-                        responseText = "";
-                        return true;
-                    }
-                }];
-            }
-            if (isChooseModel)
-            {
-                if (isWaitingForGetListModel == false)
-                    modelNames = FetchModelsFromEndpointAsync().GetAwaiter().GetResult();
 
-                isWaitingForGetListModel = true;
-
-                foreach (var modelName in modelNames)
-                {
-                    results.Add(new Result
-                    {
-                        Title = modelName,
-                        SubTitle = "",
-                        IcoPath = IconPath,
-                        Action = e =>
-                        {
-                            DfModel = modelName;
-                            isChooseModel = false;
-                            isWaitingForGetListModel = false;
-                            Context.API.ChangeQuery($"{Context.CurrentPluginMetadata.ActionKeyword} ", requery: true);
-                            return false;
-                        }
-                    });
-                }
-            }
-            else
+            switch (currentState)
             {
-                return [
-                    new Result
-                    {
+                case QueryState.Idle:
+                    results.Add(new Result {
                         Title = search,
                         SubTitle = $"Ask {DfModel}",
                         IcoPath = IconPath,
@@ -259,36 +201,160 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
                                 {
                                     responseText = await QueryAsync(search, DfModel);
                                     Context.API.ChangeQuery($"{Context.CurrentPluginMetadata.ActionKeyword} ", requery: true);
-                                    isWaitingForResponse = false;
+                                    currentState = QueryState.ShowResponse;
                                 }
                                 catch (Exception ex)
                                 {
-                                    isWaitingForResponse = false;
+                                    currentState = QueryState.ShowResponse;
                                     responseText = $"Error: {ex.Message}";
                                 }
                             });
-
-                            isWaitingForResponse = true;
+                            currentState = QueryState.WaitingResponse;
                             Context.API.ChangeQuery($"{Context.CurrentPluginMetadata.ActionKeyword} " + search, requery: true);
                             return false;
-                        },
-
-                        ContextData = search
-                    },
-                    new Result
-                    {
-                        Title = search,
+                        }
+                    });
+                    results.Add(new Result {
+                        Title = "Change model LLM",
                         SubTitle = "Choose another Model",
                         IcoPath = IconPath,
                         Action = e =>
                         {
-                            isChooseModel = true;
+                            currentState = QueryState.GetListOfModels;
                             Context.API.ChangeQuery($"{Context.CurrentPluginMetadata.ActionKeyword} ", requery: true);
                             return false;
                         },
-                        ContextData = search
+                    });
+                    results.Add(new Result
+                    {
+                        Title = "Change thinking mode",
+                        SubTitle = "/think, /no_think, enable_thinking, reasoning{ effort, depth, timeout }.",
+                        IcoPath = IconPath,
+                        Action = e =>
+                        {
+                            currentState = QueryState.ChangingThinkingMode;
+                            Context.API.ChangeQuery($"{Context.CurrentPluginMetadata.ActionKeyword} ", requery: true);
+                            return false;
+                        },
+                    });
+                    break;
+                case QueryState.ChangingThinkingMode:
+                    results.Add(new Result
+                    {
+                        Title = "/think",
+                        SubTitle = "User Input",
+                        IcoPath = IconPath,
+                        Action = e =>
+                        {
+                            SystemPrompt += " /think";
+                            currentState = QueryState.Idle;
+                            Context.API.ChangeQuery($"{Context.CurrentPluginMetadata.ActionKeyword} ", requery: true);
+                            return false;
+                        },
+                    });
+                    results.Add(new Result
+                    {
+                        Title = "/no_think",
+                        SubTitle = "User Input",
+                        IcoPath = IconPath,
+                        Action = e =>
+                        {
+                            SystemPrompt += " /no_think";
+                            currentState = QueryState.Idle;
+                            Context.API.ChangeQuery($"{Context.CurrentPluginMetadata.ActionKeyword} ", requery: true);
+                            return false;
+                        },
+                    });
+                    results.Add(new Result
+                    {
+                        Title = "enable_thinking : true",
+                        SubTitle = "Request",
+                        IcoPath = IconPath,
+                        Action = e =>
+                        {
+                            SystemPrompt += " /no_think";
+                            currentState = QueryState.Idle;
+                            Context.API.ChangeQuery($"{Context.CurrentPluginMetadata.ActionKeyword} ", requery: true);
+                            return false;
+                        },
+                    });
+                    results.Add(new Result
+                    {
+                        Title = "enable_thinking: false",
+                        SubTitle = "Request",
+                        IcoPath = IconPath,
+                        Action = e =>
+                        {
+                            SystemPrompt += " /no_think";
+                            currentState = QueryState.Idle;
+                            Context.API.ChangeQuery($"{Context.CurrentPluginMetadata.ActionKeyword} ", requery: true);
+                            return false;
+                        },
+                    });
+                    break;
+                case QueryState.GetListOfModels:
+                    modelNames = FetchModelsFromEndpointAsync().GetAwaiter().GetResult();
+                    currentState = QueryState.ChoosingModel;
+                    Context.API.ChangeQuery($"{Context.CurrentPluginMetadata.ActionKeyword} ", requery: true);
+                    break;
+                case QueryState.ChoosingModel:
+                    foreach (var modelName in modelNames)
+                    {
+                        results.Add(new Result
+                        {
+                            Title = modelName,
+                            SubTitle = "",
+                            IcoPath = IconPath,
+                            Action = e =>
+                            {
+                                DfModel = modelName;
+                                currentState = QueryState.Idle;
+                                Context.API.ChangeQuery($"{Context.CurrentPluginMetadata.ActionKeyword} ", requery: true);
+                                return false;
+                            }
+                        });
                     }
-                    ];
+                    break;
+                case QueryState.WaitingResponse:
+                    waited += 1;
+                    _ = Task.Run(async () =>
+                    {
+                        await Task.Delay(1000);
+                        Context.API.ChangeQuery($"{Context.CurrentPluginMetadata.ActionKeyword} " + search, requery: true);
+                    });
+                    results.Add(new Result
+                    {
+                        Title = search,
+                        SubTitle = $"Waited : {waited}s. Cancel the task by pressing enter.",
+                        IcoPath = IconPath,
+                        Action = e =>
+                        {
+                            // Cancel task, will do later
+                            //waited = 0;
+                            //responseText = "";
+                            return true;
+                        }
+                    });
+                    break;
+                case QueryState.ShowResponse:
+                    waited = 0;
+                    results.Add(new Result
+                    {
+                        Title = $"Response by: {DfModel}:",
+                        SubTitle = responseText,
+                        IcoPath = IconPath,
+                        Action = e =>
+                        {
+                            currentState = QueryState.Idle;
+                            Clipboard.SetText(responseText);
+                            Context.API.ShowMsg($"Response by: {DfModel}", responseText);
+                            responseText = "";
+                            return true;
+                        }
+                    });
+                    break;
+                default:
+                    break;
             }
             return results;
         }
