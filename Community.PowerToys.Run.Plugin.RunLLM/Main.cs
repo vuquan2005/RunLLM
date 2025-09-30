@@ -7,24 +7,10 @@ using Wox.Plugin;
 
 namespace Community.PowerToys.Run.Plugin.RunLLM
 {
-    /// <summary>
-    /// Main class of this plugin that implement all used interfaces.
-    /// </summary>
     public class Main : IPlugin, IContextMenu, IDisposable
     {
-        /// <summary>
-        /// ID of the plugin.
-        /// </summary>
         public static string PluginID => "0167343682284415AF592A37253E75AA";
-
-        /// <summary>
-        /// Name of the plugin.
-        /// </summary>
         public string Name => "RunLLM";
-
-        /// <summary>
-        /// Description of the plugin.
-        /// </summary>
         public string Description => "RunLLM Description";
 
         private PluginInitContext Context { get; set; }
@@ -33,11 +19,6 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
 
         private bool Disposed { get; set; }
 
-        /// <summary>
-        /// Return a filtered list, based on the given query.
-        /// </summary>
-        /// <param name="query">The query to filter the list.</param>
-        /// <returns>A filtered list, can be empty when nothing was found.</returns>
         public List<Result> Query(Query query)
         {
             var search = query.Search;
@@ -60,11 +41,6 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
                 }
             ];
         }
-
-        /// <summary>
-        /// Initialize the plugin with the given <see cref="PluginInitContext"/>.
-        /// </summary>
-        /// <param name="context">The <see cref="PluginInitContext"/> for this plugin.</param>
         public void Init(PluginInitContext context)
         {
             Context = context ?? throw new ArgumentNullException(nameof(context));
@@ -102,18 +78,11 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
 
             return [];
         }
-
-        /// <inheritdoc/>
         public void Dispose()
         {
             Dispose(true);
             GC.SuppressFinalize(this);
         }
-
-        /// <summary>
-        /// Wrapper method for <see cref="Dispose()"/> that dispose additional objects and events form the plugin itself.
-        /// </summary>
-        /// <param name="disposing">Indicate that the plugin is disposed.</param>
         protected virtual void Dispose(bool disposing)
         {
             if (Disposed || !disposing)
@@ -128,9 +97,7 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
 
             Disposed = true;
         }
-
         private void UpdateIconPath(Theme theme) => IconPath = theme == Theme.Light || theme == Theme.HighContrastWhite ? "Images/runllm.light.png" : "Images/runllm.dark.png";
-
         private void OnThemeChanged(Theme currentTheme, Theme newTheme) => UpdateIconPath(newTheme);
     }
 }
