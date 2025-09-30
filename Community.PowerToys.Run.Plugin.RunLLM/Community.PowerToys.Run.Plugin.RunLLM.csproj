@@ -5,6 +5,8 @@
     <UseWPF>true</UseWPF>
     <Platforms>x64;ARM64</Platforms>
     <PlatformTarget>$(Platform)</PlatformTarget>
+
+	<FileVersion>0.1.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
