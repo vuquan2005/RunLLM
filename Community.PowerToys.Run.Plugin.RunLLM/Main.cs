@@ -91,12 +91,12 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
             }
         }
 
-
         public Control CreateSettingPanel()
         {
             throw new NotImplementedException();
         }
 
+        // Fetch models from the endpoint
         private async Task<List<string>> FetchModelsFromEndpointAsync()
         {
             try
@@ -126,28 +126,26 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
                 return new List<string>();
             }
         }
-
+        // Request to the LLM API
         private async Task<string> QueryAsync(string prompt, string model)
         {
-            SystemPrompt.Replace("[currentTime]", DateTime.Now.ToString());
+            string systemPrompt = SystemPrompt.Replace("[currentTime]", DateTime.Now.ToString());
+
             var body = new
             {
                 model = model,
-                prompt = SystemPrompt + "\n\n" + prompt,
-                temperature = 0.8,
-                top_k = 40,
-                top_p = 0.95,
-                min_p = 0.05,
-                repeat_penalty = 1.1,
-                max_token = 1024,
+                messages = new object[]
+                {
+                    new { role = "system", content = systemPrompt },
+                    new { role = "user", content = prompt }
+                },
             };
-
 
             string json = JsonSerializer.Serialize(body);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             // LM Studio local API
-            var response = await client.PostAsync($"{Url}/v1/completions", content);
+            var response = await client.PostAsync($"{Url}/v1/chat/completions", content);
             response.EnsureSuccessStatusCode();
 
             string responseContent = await response.Content.ReadAsStringAsync();
@@ -155,11 +153,12 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
             using var doc = JsonDocument.Parse(responseContent);
             return doc.RootElement
                       .GetProperty("choices")[0]
-                      .GetProperty("text")
+                      .GetProperty("message")
+                      .GetProperty("content")
                       .GetString();
         }
 
-
+        // Query
         public List<Result> Query(Query query)
 
         {
@@ -167,12 +166,11 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
             return results;
         }
 
-
         private static bool isChooseModel = false;
         private static bool isWaitingForGetListModel = false;
         private static bool isWaitingForResponse = false;
         private short waited = 0;
-        private string responseText = "";
+        private static string responseText = "";
         List<string> modelNames = new List<string>();
         public List<Result> Query(Query query, bool delayedExecution)
         {
@@ -191,8 +189,15 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
                 return [new Result
                 {
                     Title = search,
-                    SubTitle = $"Waited : {waited}s.",
-                    IcoPath = IconPath
+                    SubTitle = $"Waited : {waited}s. Cancel the task by pressing enter.",
+                    IcoPath = IconPath,
+                    Action = e =>
+                    {
+                        // Cancel task, will do later
+                        //waited = 0;
+                        //responseText = "";
+                        return true;
+                    }
                 }];
             }
             else if (waited > 0 || responseText != "")
@@ -206,7 +211,8 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
                     Action = e =>
                     {
                         Clipboard.SetText(responseText);
-                        responseText = "";
+                        Context.API.ShowMsg($"Response by: {DfModel}", responseText);
+                        responseText = "null";
                         return true;
                     }
                 }];
@@ -246,12 +252,12 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
                         IcoPath = IconPath,
                         Action = e =>
                         {
+                            // Cancel task, will do later
                             _ = Task.Run(async () =>
                             {
                                 try
                                 {
-                                    string responseText = await QueryAsync(search, DfModel);
-                                    Context.API.ShowMsg("RunLLM", "Response copied to clipboard!", string.Empty);
+                                    responseText = await QueryAsync(search, DfModel);
                                     Context.API.ChangeQuery($"{Context.CurrentPluginMetadata.ActionKeyword} ", requery: true);
                                     isWaitingForResponse = false;
                                 }
