@@ -11,6 +11,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using Wox.Plugin;
+using Wox.Plugin.Common.Win32;
 
 namespace Community.PowerToys.Run.Plugin.RunLLM
 {
@@ -18,12 +19,11 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
     {
         public static string PluginID => "0167343682284415AF592A37253E75AA";
         public string Name => "RunLLM";
-        public string Description => "RunLLM Description";
+        public string Description => "LLM in Powertoys run";
 
         private static readonly System.Net.Http.HttpClient client = new System.Net.Http.HttpClient();
         private PluginInitContext Context { get; set; }
 
-        private string IconPath { get; set; }
 
         private bool Disposed { get; set; }
 
@@ -52,7 +52,7 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
             new PluginAdditionalOption()
             {
                 Key = "APIKey",
-                DisplayLabel = "Use API Key endpoint",
+                DisplayLabel = "Use API Key endpoint. (Comming soon)",
                 DisplayDescription = "Check to use API key and enter your key below",
                 PluginOptionType = PluginAdditionalOption.AdditionalOptionType.CheckboxAndTextbox,
                 TextValue = "YOUR_API_KEY"
@@ -164,185 +164,219 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
         private short waited = 0;
         private string responseText = "";
         private List<string> modelNames = new();
+
         public List<Result> Query(Query query)
         {
             var search = query.Search;
-            var rawquery = query.RawQuery;
-            List<Result> results = new List<Result>();
+            var rawQuery = query.RawQuery;
+            var result = new List<Result>();
 
             switch (currentState)
             {
                 case QueryState.Idle:
-                    results.Add(new Result
-                    {
-                        Title = search,
-                        SubTitle = $"Ask {DfModel}",
-                        IcoPath = "Images/run.png",
-                        Action = e =>
-                        {
-                            // Cancel task, will do later
-                            _ = Task.Run(async () =>
-                            {
-                                try
-                                {
-                                    responseText = await QueryAsync(search, DfModel);
-                                    Context.API.ChangeQuery(rawquery, requery: true);
-                                    currentState = QueryState.ShowResponse;
-                                }
-                                catch (Exception ex)
-                                {
-                                    currentState = QueryState.ShowResponse;
-                                    responseText = $"Error: {ex.Message}";
-                                }
-                            });
-                            currentState = QueryState.WaitingResponse;
-                            Context.API.ChangeQuery(rawquery, requery: true);
-                            return false;
-                        }
-                    });
-                    if (rawquery.StartsWith(Context.CurrentPluginMetadata.ActionKeyword))
-                        results.Add(new Result
-                        {
-                            Title = "Change model LLM",
-                            SubTitle = "Choose another Model",
-                            IcoPath = "Images/change.png",
-                            Action = e =>
-                            {
-                                currentState = QueryState.GetListOfModels;
-                                Context.API.ChangeQuery(rawquery, requery: true);
-                                return false;
-                            },
-                        });
-                    if (rawquery.StartsWith(Context.CurrentPluginMetadata.ActionKeyword))
-                        results.Add(new Result
-                        {
-                            Title = "Change thinking mode",
-                            SubTitle = "/think, /no_think, enable_thinking, reasoning{ effort, depth, timeout }.",
-                            IcoPath = "Images/brain.png",
-                            Action = e =>
-                            {
-                                currentState = QueryState.ChangingThinkingMode;
-                                Context.API.ChangeQuery(rawquery, requery: true);
-                                return false;
-                            },
-                        });
-                    break;
+                    return HandleIdleState(search, rawQuery);
                 case QueryState.ChangingThinkingMode:
-                    results.Add(new Result
-                    {
-                        Title = "/think",
-                        SubTitle = "User Input",
-                        IcoPath = "Images/brain.png",
-                        Action = e =>
-                        {
-                            SystemPrompt += " /think";
-                            currentState = QueryState.Idle;
-                            Context.API.ChangeQuery(rawquery, requery: true);
-                            return false;
-                        },
-                    });
-                    results.Add(new Result
-                    {
-                        Title = "/no_think",
-                        SubTitle = "User Input",
-                        IcoPath = "Images/brain.png",
-                        Action = e =>
-                        {
-                            SystemPrompt += " /no_think";
-                            currentState = QueryState.Idle;
-                            Context.API.ChangeQuery(rawquery, requery: true);
-                            return false;
-                        },
-                    });
-                    results.Add(new Result
-                    {
-                        Title = "enable_thinking : true",
-                        SubTitle = "Request",
-                        IcoPath = "Images/brain.png",
-                        Action = e =>
-                        {
-                            currentState = QueryState.Idle;
-                            Context.API.ChangeQuery(rawquery, requery: true);
-                            return false;
-                        },
-                    });
-                    results.Add(new Result
-                    {
-                        Title = "enable_thinking: false",
-                        SubTitle = "Request",
-                        IcoPath = "Images/brain.png",
-                        Action = e =>
-                        {
-                            currentState = QueryState.Idle;
-                            Context.API.ChangeQuery(rawquery, requery: true);
-                            return false;
-                        },
-                    });
-                    break;
+                    return HandleChangingThinkingMode(rawQuery);
                 case QueryState.GetListOfModels:
-                    modelNames = FetchModelsFromEndpointAsync().GetAwaiter().GetResult();
-                    currentState = QueryState.ChoosingModel;
-                    Context.API.ChangeQuery(rawquery, requery: true);
-                    break;
-                case QueryState.ChoosingModel:
-                    foreach (var modelName in modelNames)
-                    {
-                        results.Add(new Result
-                        {
-                            Title = modelName,
-                            SubTitle = "",
-                            IcoPath = "Images/model.png",
-                            Action = e =>
-                            {
-                                DfModel = modelName;
-                                currentState = QueryState.Idle;
-                                Context.API.ChangeQuery(rawquery, requery: true);
-                                return false;
-                            }
-                        });
-                    }
-                    break;
-                case QueryState.WaitingResponse:
-                    waited += 1;
                     _ = Task.Run(async () =>
                     {
-                        await Task.Delay(1000);
-                        Context.API.ChangeQuery(rawquery, requery: true);
-                    });
-                    results.Add(new Result
-                    {
-                        Title = rawquery,
-                        SubTitle = $"Waited : {waited}s. Cancel the task by pressing enter.",
-                        IcoPath = "Images/timer.png",
-                        Action = e =>
-                        {
-                            // Cancel task, will do later
-                            //waited = 0;
-                            //responseText = "";
-                            return true;
-                        }
+                        modelNames = await FetchModelsFromEndpointAsync();
+                        currentState = QueryState.ChoosingModel;
+                        Context.API.ChangeQuery(rawQuery, requery: true);
                     });
                     break;
+                case QueryState.ChoosingModel:
+                    return HandleChoosingModelState(rawQuery);
+                case QueryState.WaitingResponse:
+                    return HandleWaitingResponseState(rawQuery);
                 case QueryState.ShowResponse:
-                    waited = 0;
-                    results.Add(new Result
+                    return HandleShowResponseState(rawQuery);
+            }
+            return result;
+        }
+
+        private List<Result> HandleIdleState(string search, string rawQuery)
+        {
+            var results = new List<Result>
+            {
+                new() {
+                    Title = search,
+                    SubTitle = $"Ask {DfModel}",
+                    IcoPath = "Images/run.png",
+                    Action = e =>
                     {
-                        Title = $"Response by: {DfModel}:",
-                        SubTitle = responseText,
-                        IcoPath = "Images/access.png",
+                        _ = Task.Run(async () =>
+                        {
+                            try
+                            {
+                                responseText = await QueryAsync(search, DfModel);
+                                currentState = QueryState.ShowResponse;
+                            }
+                            catch (Exception ex)
+                            {
+                                responseText = $"Error: {ex.Message}";
+                                currentState = QueryState.ShowResponse;
+                            }
+                            Context.API.ChangeQuery(rawQuery, requery: true);
+                        });
+                        currentState = QueryState.WaitingResponse;
+                        Context.API.ChangeQuery(rawQuery, requery: true);
+                        return false;
+                    }
+                }
+            };
+
+            if (rawQuery.StartsWith(Context.CurrentPluginMetadata.ActionKeyword))
+            {
+                results.AddRange([
+                    new Result
+                    {
+                        Title = "Change model LLM",
+                        SubTitle = "Choose another Model",
+                        IcoPath = "Images/change.png",
                         Action = e =>
                         {
-                            currentState = QueryState.Idle;
-                            Clipboard.SetText(responseText);
-                            Context.API.ShowMsg($"Response by: {DfModel}", responseText);
-                            responseText = "";
-                            return true;
+                            currentState = QueryState.GetListOfModels;
+                            Context.API.ChangeQuery(rawQuery, requery: true);
+                            return false;
                         }
-                    });
-                    break;
-                default:
-                    break;
+                    },
+                    new Result
+                    {
+                        Title = "Change thinking mode",
+                        SubTitle = "/think, /no_think, enable_thinking, reasoning{ effort, depth, timeout }.",
+                        IcoPath = "Images/brain.png",
+                        Action = e =>
+                        {
+                            currentState = QueryState.ChangingThinkingMode;
+                            Context.API.ChangeQuery(rawQuery, requery: true);
+                            return false;
+                        }
+                    }
+                ]);
             }
+            return results;
+        }
+
+        private List<Result> HandleChoosingModelState(string rawQuery)
+        {
+            var results = new List<Result>();
+            foreach (var modelName in modelNames)
+            {
+                results.Add(new Result
+                {
+                    Title = modelName,
+                    SubTitle = "",
+                    IcoPath = "Images/model.png",
+                    Action = e =>
+                    {
+                        DfModel = modelName;
+                        currentState = QueryState.Idle;
+                        Context.API.ChangeQuery(rawQuery, requery: true);
+                        return false;
+                    }
+                });
+            }
+            return results;
+        }
+
+        private List<Result> HandleChangingThinkingMode(string rawQuery)
+        {
+            var results = new List<Result>(){new Result
+            {
+                Title = "/think",
+                SubTitle = "User Input",
+                IcoPath = "Images/brain.png",
+                Action = e =>
+                {
+                    SystemPrompt += " /think";
+                    currentState = QueryState.Idle;
+                    Context.API.ChangeQuery(rawQuery, requery: true);
+                    return false;
+                },
+            },
+            new() {
+                Title = "/no_think",
+                SubTitle = "User Input",
+                IcoPath = "Images/brain.png",
+                Action = e =>
+                {
+                    SystemPrompt += " /no_think";
+                    currentState = QueryState.Idle;
+                    Context.API.ChangeQuery(rawQuery, requery: true);
+                    return false;
+                },
+            },
+            new() {
+                Title = "enable_thinking : true",
+                SubTitle = "Request",
+                IcoPath = "Images/brain.png",
+                Action = e =>
+                {
+                    currentState = QueryState.Idle;
+                    Context.API.ChangeQuery(rawQuery, requery: true);
+                    return false;
+                },
+            },
+            new() {
+                Title = "enable_thinking: false",
+                SubTitle = "Request",
+                IcoPath = "Images/brain.png",
+                Action = e =>
+                {
+                    currentState = QueryState.Idle;
+                    Context.API.ChangeQuery(rawQuery, requery: true);
+                    return false;
+                },
+            }};
+            return results;
+        }
+
+        private List<Result> HandleWaitingResponseState(string rawQuery)
+        {
+            waited += 1;
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(1000);
+                Context.API.ChangeQuery(rawQuery, requery: true);
+            });
+            var results = new List<Result>
+            {
+                new() {
+                    Title = rawQuery,
+                    SubTitle = $"Waited : {waited}s. Cancel the task by pressing enter.",
+                    IcoPath = "Images/timer.png",
+                    Action = e =>
+                    {
+                        // Cancel task, will do later
+                        //waited = 0;
+                        //responseText = "";
+                        return true;
+                    }
+                }
+            };
+            return results;
+        }
+
+        private List<Result> HandleShowResponseState(string rawQuery)
+        {
+            waited = 0;
+            var results = new List<Result>
+            {
+                new() {
+                    Title = $"Response by: {DfModel}:",
+                    SubTitle = responseText,
+                    IcoPath = "Images/access.png",
+                    Action = e =>
+                    {
+                        currentState = QueryState.Idle;
+                        Clipboard.SetText(responseText);
+                        Context.API.ShowMsg($"Response by: {DfModel}", responseText);
+                        responseText = "";
+                        return true;
+                    }
+                }
+            };
             return results;
         }
 
@@ -350,8 +384,6 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
         public void Init(PluginInitContext context)
         {
             Context = context ?? throw new ArgumentNullException(nameof(context));
-            Context.API.ThemeChanged += OnThemeChanged;
-            UpdateIconPath(Context.API.GetCurrentTheme());
         }
 
         public List<ContextMenuResult> LoadContextMenus(Result selectedResult)
@@ -390,15 +422,7 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
             {
                 return;
             }
-
-            if (Context?.API != null)
-            {
-                Context.API.ThemeChanged -= OnThemeChanged;
-            }
-
             Disposed = true;
         }
-        private void UpdateIconPath(Theme theme) => IconPath = theme == Theme.Light || theme == Theme.HighContrastWhite ? "Images/model.png" : "Images/model.png";
-        private void OnThemeChanged(Theme currentTheme, Theme newTheme) => UpdateIconPath(newTheme);
     }
 }

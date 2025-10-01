@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net9.0-windows10.0.22621.0</TargetFramework>
@@ -6,7 +6,7 @@
     <Platforms>x64;ARM64</Platforms>
     <PlatformTarget>$(Platform)</PlatformTarget>
 
-	<FileVersion>1.2.0</FileVersion>
+	<FileVersion>1.2.1</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
