@@ -6,7 +6,7 @@
     <Platforms>x64;ARM64</Platforms>
     <PlatformTarget>$(Platform)</PlatformTarget>
 
-	<FileVersion>1.2.1</FileVersion>
+	<FileVersion>1.2.2</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>

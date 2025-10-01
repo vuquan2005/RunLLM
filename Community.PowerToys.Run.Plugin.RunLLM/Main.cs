@@ -6,6 +6,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -92,13 +93,12 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
         {
             try
             {
-                string apiUrl;
-                apiUrl = $"{Url}/v1/models";
+                string apiUrl = $"{Url}/v1/models";
 
                 var response = await client.GetStringAsync(apiUrl);
                 var jsonDocument = JsonDocument.Parse(response);
 
-                List<string> modelNames = new List<string>();
+                var modelNames = new List<string>();
 
                 // OpenAI-style: { "data": [ { "id": "gpt-3.5-turbo" }, ... ] }
                 var models = jsonDocument.RootElement.GetProperty("data").EnumerateArray();
@@ -114,17 +114,17 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
             catch (Exception ex)
             {
                 Console.WriteLine($"Error fetching models from API: {ex.Message}");
-                return new List<string>();
+                return [];
             }
         }
         // Request to the LLM API
-        private async Task<string> QueryAsync(string prompt, string model)
+        private async Task<string> QueryAsync(string prompt, string model, CancellationToken token)
         {
             string systemPrompt = SystemPrompt.Replace("[currentTime]", DateTime.Now.ToString());
 
             var body = new
             {
-                model = model,
+                model,
                 messages = new object[]
                 {
                     new { role = "system", content = systemPrompt },
@@ -135,19 +135,19 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
             string json = JsonSerializer.Serialize(body);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            // LM Studio local API
-            var response = await client.PostAsync($"{Url}/v1/chat/completions", content);
+            var response = await client.PostAsync($"{Url}/v1/chat/completions", content, token);
             response.EnsureSuccessStatusCode();
 
-            string responseContent = await response.Content.ReadAsStringAsync();
+            string responseContent = await response.Content.ReadAsStringAsync(token);
 
             using var doc = JsonDocument.Parse(responseContent);
             return doc.RootElement
                       .GetProperty("choices")[0]
                       .GetProperty("message")
                       .GetProperty("content")
-                      .GetString();
+                      .GetString() ?? string.Empty;
         }
+
 
         // Query
         enum QueryState
@@ -163,7 +163,10 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
         private QueryState currentState = QueryState.Idle;
         private short waited = 0;
         private string responseText = "";
-        private List<string> modelNames = new();
+        private List<string> modelNames = [];
+        private DateTime _lastFetchModels = DateTime.MinValue;
+
+        private CancellationTokenSource? _cts;
 
         public List<Result> Query(Query query)
         {
@@ -175,25 +178,26 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
             {
                 case QueryState.Idle:
                     return HandleIdleState(search, rawQuery);
+
                 case QueryState.ChangingThinkingMode:
                     return HandleChangingThinkingMode(rawQuery);
+
                 case QueryState.GetListOfModels:
-                    _ = Task.Run(async () =>
-                    {
-                        modelNames = await FetchModelsFromEndpointAsync();
-                        currentState = QueryState.ChoosingModel;
-                        Context.API.ChangeQuery(rawQuery, requery: true);
-                    });
-                    break;
+                    return HandleGetListOfModels(rawQuery);
+
                 case QueryState.ChoosingModel:
                     return HandleChoosingModelState(rawQuery);
+
                 case QueryState.WaitingResponse:
                     return HandleWaitingResponseState(rawQuery);
+
                 case QueryState.ShowResponse:
                     return HandleShowResponseState(rawQuery);
             }
+
             return result;
         }
+
 
         private List<Result> HandleIdleState(string search, string rawQuery)
         {
@@ -205,20 +209,32 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
                     IcoPath = "Images/run.png",
                     Action = e =>
                     {
+                        _cts?.Cancel();
+                        _cts = new CancellationTokenSource();
+                        var localToken = _cts.Token;
+
                         _ = Task.Run(async () =>
                         {
                             try
                             {
-                                responseText = await QueryAsync(search, DfModel);
+                                responseText = await QueryAsync(search, DfModel, localToken);
                                 currentState = QueryState.ShowResponse;
+                            }
+                            catch (OperationCanceledException)
+                            {
+                                responseText = "";
+                                waited = 0;
+                                currentState = QueryState.Idle;
                             }
                             catch (Exception ex)
                             {
                                 responseText = $"Error: {ex.Message}";
                                 currentState = QueryState.ShowResponse;
                             }
+
                             Context.API.ChangeQuery(rawQuery, requery: true);
-                        });
+                        }, localToken);
+
                         currentState = QueryState.WaitingResponse;
                         Context.API.ChangeQuery(rawQuery, requery: true);
                         return false;
@@ -257,7 +273,36 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
             }
             return results;
         }
+        private List<Result> HandleGetListOfModels(string rawQuery)
+        {
+            var result = new List<Result>();
 
+            if ((DateTime.Now - _lastFetchModels).TotalMinutes < 1 && modelNames.Count > 0)
+            {
+                currentState = QueryState.ChoosingModel;
+                Context.API.ChangeQuery(rawQuery, requery: true);
+            }
+            else
+            {
+                _lastFetchModels = DateTime.Now;
+                modelNames.Clear();
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        modelNames = await FetchModelsFromEndpointAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        Context.API.ShowMsg("Error", ex.Message);
+                        currentState = QueryState.Idle;
+                    }
+                    currentState = QueryState.ChoosingModel;
+                    Context.API.ChangeQuery(rawQuery, requery: true);
+                });
+            }
+            return result;
+        }
         private List<Result> HandleChoosingModelState(string rawQuery)
         {
             var results = new List<Result>();
@@ -279,7 +324,6 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
             }
             return results;
         }
-
         private List<Result> HandleChangingThinkingMode(string rawQuery)
         {
             var results = new List<Result>(){new Result
@@ -331,7 +375,6 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
             }};
             return results;
         }
-
         private List<Result> HandleWaitingResponseState(string rawQuery)
         {
             waited += 1;
@@ -348,16 +391,17 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
                     IcoPath = "Images/timer.png",
                     Action = e =>
                     {
-                        // Cancel task, will do later
-                        //waited = 0;
-                        //responseText = "";
+                        _cts?.Cancel();
+                        waited = 0;
+                        responseText = "";
+                        currentState = QueryState.Idle;
+                        Context.API.ChangeQuery(rawQuery, requery: true);
                         return true;
                     }
                 }
             };
             return results;
         }
-
         private List<Result> HandleShowResponseState(string rawQuery)
         {
             waited = 0;
