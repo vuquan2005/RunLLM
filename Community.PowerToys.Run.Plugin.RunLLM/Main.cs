@@ -14,7 +14,7 @@ using Wox.Plugin;
 
 namespace Community.PowerToys.Run.Plugin.RunLLM
 {
-    public class Main : IPlugin, IContextMenu, IDisposable, ISettingProvider, IDelayedExecutionPlugin
+    public class Main : IPlugin, IContextMenu, IDisposable, ISettingProvider
     {
         public static string PluginID => "0167343682284415AF592A37253E75AA";
         public string Name => "RunLLM";
@@ -30,15 +30,6 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
         // Settings
         private string Url, APIKey, DfModel;
         private bool UseAPIKeyEndpoint;
-        //        private string SystemPrompt = @"You are a highly capable and efficient AI assistant running locally on a secure system. Your purpose is to provide accurate, concise, and helpful responses to user queries while prioritizing privacy and local resource constraints. Follow these guidelines:
-        //1. **Accuracy and Relevance**: Provide fact-based, precise answers. If uncertain or lacking data, admit limitations and suggest alternatives (e.g., 'I don't have enough information to answer fully, but you could check [specific resource]'.).
-        //2. **Clarity and Tone**: Use clear, friendly, and professional language. Adapt tone based on user preference (e.g., formal, casual, or technical).
-        //3. **Resource Efficiency**: Optimize responses for low computational overhead, avoiding unnecessary verbosity or complex processing unless explicitly requested.
-        //4. **Privacy**: Do not store, share, or transmit any user data outside the local system. Treat all inputs as confidential.
-        //5. **Context Awareness**: Leverage any provided user context or previous interactions stored locally to personalize responses, but only if explicitly allowed by the user.
-        //6. **Task Scope**: Handle a wide range of tasks, including answering questions, solving problems, generating text, or performing calculations, as requested. If a task is outside your capabilities, clearly state so.
-        //7. **Safety and Ethics**: Avoid generating harmful, biased, or offensive content. Flag any problematic requests and respond neutrally or decline appropriately.
-        //Current date and time: [currentTime]. Respond to all queries with these principles in mind, and ask for clarification if the user's request is ambiguous.";
         private string SystemPrompt = "";
         public IEnumerable<PluginAdditionalOption> AdditionalOptions => new List<PluginAdditionalOption>()
         {
@@ -159,13 +150,6 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
         }
 
         // Query
-        public List<Result> Query(Query query)
-
-        {
-            List<Result> results = [];
-            return results;
-        }
-
         enum QueryState
         {
             Idle,
@@ -180,18 +164,20 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
         private short waited = 0;
         private string responseText = "";
         private List<string> modelNames = new();
-        public List<Result> Query(Query query, bool delayedExecution)
+        public List<Result> Query(Query query)
         {
             var search = query.Search;
+            var rawquery = query.RawQuery;
             List<Result> results = new List<Result>();
 
             switch (currentState)
             {
                 case QueryState.Idle:
-                    results.Add(new Result {
+                    results.Add(new Result
+                    {
                         Title = search,
                         SubTitle = $"Ask {DfModel}",
-                        IcoPath = IconPath,
+                        IcoPath = "Images/run.png",
                         Action = e =>
                         {
                             // Cancel task, will do later
@@ -200,7 +186,7 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
                                 try
                                 {
                                     responseText = await QueryAsync(search, DfModel);
-                                    Context.API.ChangeQuery($"{Context.CurrentPluginMetadata.ActionKeyword} ", requery: true);
+                                    Context.API.ChangeQuery(rawquery, requery: true);
                                     currentState = QueryState.ShowResponse;
                                 }
                                 catch (Exception ex)
@@ -210,45 +196,48 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
                                 }
                             });
                             currentState = QueryState.WaitingResponse;
-                            Context.API.ChangeQuery($"{Context.CurrentPluginMetadata.ActionKeyword} " + search, requery: true);
+                            Context.API.ChangeQuery(rawquery, requery: true);
                             return false;
                         }
                     });
-                    results.Add(new Result {
-                        Title = "Change model LLM",
-                        SubTitle = "Choose another Model",
-                        IcoPath = IconPath,
-                        Action = e =>
+                    if (rawquery.StartsWith(Context.CurrentPluginMetadata.ActionKeyword))
+                        results.Add(new Result
                         {
-                            currentState = QueryState.GetListOfModels;
-                            Context.API.ChangeQuery($"{Context.CurrentPluginMetadata.ActionKeyword} ", requery: true);
-                            return false;
-                        },
-                    });
-                    results.Add(new Result
-                    {
-                        Title = "Change thinking mode",
-                        SubTitle = "/think, /no_think, enable_thinking, reasoning{ effort, depth, timeout }.",
-                        IcoPath = IconPath,
-                        Action = e =>
+                            Title = "Change model LLM",
+                            SubTitle = "Choose another Model",
+                            IcoPath = "Images/change.png",
+                            Action = e =>
+                            {
+                                currentState = QueryState.GetListOfModels;
+                                Context.API.ChangeQuery(rawquery, requery: true);
+                                return false;
+                            },
+                        });
+                    if (rawquery.StartsWith(Context.CurrentPluginMetadata.ActionKeyword))
+                        results.Add(new Result
                         {
-                            currentState = QueryState.ChangingThinkingMode;
-                            Context.API.ChangeQuery($"{Context.CurrentPluginMetadata.ActionKeyword} ", requery: true);
-                            return false;
-                        },
-                    });
+                            Title = "Change thinking mode",
+                            SubTitle = "/think, /no_think, enable_thinking, reasoning{ effort, depth, timeout }.",
+                            IcoPath = "Images/brain.png",
+                            Action = e =>
+                            {
+                                currentState = QueryState.ChangingThinkingMode;
+                                Context.API.ChangeQuery(rawquery, requery: true);
+                                return false;
+                            },
+                        });
                     break;
                 case QueryState.ChangingThinkingMode:
                     results.Add(new Result
                     {
                         Title = "/think",
                         SubTitle = "User Input",
-                        IcoPath = IconPath,
+                        IcoPath = "Images/brain.png",
                         Action = e =>
                         {
                             SystemPrompt += " /think";
                             currentState = QueryState.Idle;
-                            Context.API.ChangeQuery($"{Context.CurrentPluginMetadata.ActionKeyword} ", requery: true);
+                            Context.API.ChangeQuery(rawquery, requery: true);
                             return false;
                         },
                     });
@@ -256,12 +245,12 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
                     {
                         Title = "/no_think",
                         SubTitle = "User Input",
-                        IcoPath = IconPath,
+                        IcoPath = "Images/brain.png",
                         Action = e =>
                         {
                             SystemPrompt += " /no_think";
                             currentState = QueryState.Idle;
-                            Context.API.ChangeQuery($"{Context.CurrentPluginMetadata.ActionKeyword} ", requery: true);
+                            Context.API.ChangeQuery(rawquery, requery: true);
                             return false;
                         },
                     });
@@ -269,12 +258,11 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
                     {
                         Title = "enable_thinking : true",
                         SubTitle = "Request",
-                        IcoPath = IconPath,
+                        IcoPath = "Images/brain.png",
                         Action = e =>
                         {
-                            SystemPrompt += " /no_think";
                             currentState = QueryState.Idle;
-                            Context.API.ChangeQuery($"{Context.CurrentPluginMetadata.ActionKeyword} ", requery: true);
+                            Context.API.ChangeQuery(rawquery, requery: true);
                             return false;
                         },
                     });
@@ -282,12 +270,11 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
                     {
                         Title = "enable_thinking: false",
                         SubTitle = "Request",
-                        IcoPath = IconPath,
+                        IcoPath = "Images/brain.png",
                         Action = e =>
                         {
-                            SystemPrompt += " /no_think";
                             currentState = QueryState.Idle;
-                            Context.API.ChangeQuery($"{Context.CurrentPluginMetadata.ActionKeyword} ", requery: true);
+                            Context.API.ChangeQuery(rawquery, requery: true);
                             return false;
                         },
                     });
@@ -295,7 +282,7 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
                 case QueryState.GetListOfModels:
                     modelNames = FetchModelsFromEndpointAsync().GetAwaiter().GetResult();
                     currentState = QueryState.ChoosingModel;
-                    Context.API.ChangeQuery($"{Context.CurrentPluginMetadata.ActionKeyword} ", requery: true);
+                    Context.API.ChangeQuery(rawquery, requery: true);
                     break;
                 case QueryState.ChoosingModel:
                     foreach (var modelName in modelNames)
@@ -304,12 +291,12 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
                         {
                             Title = modelName,
                             SubTitle = "",
-                            IcoPath = IconPath,
+                            IcoPath = "Images/model.png",
                             Action = e =>
                             {
                                 DfModel = modelName;
                                 currentState = QueryState.Idle;
-                                Context.API.ChangeQuery($"{Context.CurrentPluginMetadata.ActionKeyword} ", requery: true);
+                                Context.API.ChangeQuery(rawquery, requery: true);
                                 return false;
                             }
                         });
@@ -320,13 +307,13 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
                     _ = Task.Run(async () =>
                     {
                         await Task.Delay(1000);
-                        Context.API.ChangeQuery($"{Context.CurrentPluginMetadata.ActionKeyword} " + search, requery: true);
+                        Context.API.ChangeQuery(rawquery, requery: true);
                     });
                     results.Add(new Result
                     {
-                        Title = search,
+                        Title = rawquery,
                         SubTitle = $"Waited : {waited}s. Cancel the task by pressing enter.",
-                        IcoPath = IconPath,
+                        IcoPath = "Images/timer.png",
                         Action = e =>
                         {
                             // Cancel task, will do later
@@ -342,7 +329,7 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
                     {
                         Title = $"Response by: {DfModel}:",
                         SubTitle = responseText,
-                        IcoPath = IconPath,
+                        IcoPath = "Images/access.png",
                         Action = e =>
                         {
                             currentState = QueryState.Idle;
@@ -358,6 +345,7 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
             }
             return results;
         }
+
 
         public void Init(PluginInitContext context)
         {
@@ -410,7 +398,7 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
 
             Disposed = true;
         }
-        private void UpdateIconPath(Theme theme) => IconPath = theme == Theme.Light || theme == Theme.HighContrastWhite ? "Images/runllm.light.png" : "Images/runllm.dark.png";
+        private void UpdateIconPath(Theme theme) => IconPath = theme == Theme.Light || theme == Theme.HighContrastWhite ? "Images/model.png" : "Images/model.png";
         private void OnThemeChanged(Theme currentTheme, Theme newTheme) => UpdateIconPath(newTheme);
     }
 }

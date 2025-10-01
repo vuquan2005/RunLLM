@@ -8,7 +8,7 @@
   "Language": "csharp",
   "Website": "https://github.com/VuQuan/Community.PowerToys.Run.Plugin.RunLLM",
   "ExecuteFileName": "Community.PowerToys.Run.Plugin.RunLLM.dll",
-  "IcoPathDark": "Images\\runllm.dark.png",
-  "IcoPathLight": "Images\\runllm.light.png",
+  "IcoPathDark": "Images\\model.png",
+  "IcoPathLight": "Images\\model.png",
   "DynamicLoading": false
 }
