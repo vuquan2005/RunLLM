@@ -2,6 +2,7 @@ using ManagedCommon;
 using Microsoft.PowerToys.Settings.UI.Library;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
@@ -12,7 +13,6 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using Wox.Plugin;
-using Wox.Plugin.Common.Win32;
 
 namespace Community.PowerToys.Run.Plugin.RunLLM
 {
@@ -24,7 +24,6 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
 
         private static readonly System.Net.Http.HttpClient client = new System.Net.Http.HttpClient();
         private PluginInitContext Context { get; set; }
-
 
         private bool Disposed { get; set; }
 
@@ -89,7 +88,7 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
         }
 
         // Fetch models from the endpoint
-        private async Task<List<string>> FetchModelsFromEndpointAsync()
+        private async Task<List<string>> GetModelsLLM()
         {
             try
             {
@@ -113,12 +112,12 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error fetching models from API: {ex.Message}");
+                Context.API.ShowNotification("Powertoys run RunLLM !Error", $"Error fetching models from API: {ex.Message}");
                 return [];
             }
         }
         // Request to the LLM API
-        private async Task<string> QueryAsync(string prompt, string model, CancellationToken token)
+        private async Task ChatCompletionStream(string prompt, string model, string rawQuery, CancellationToken token)
         {
             string systemPrompt = SystemPrompt.Replace("[currentTime]", DateTime.Now.ToString());
 
@@ -130,22 +129,58 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
                     new { role = "system", content = systemPrompt },
                     new { role = "user", content = prompt }
                 },
+                stream = true
             };
 
             string json = JsonSerializer.Serialize(body);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var response = await client.PostAsync($"{Url}/v1/chat/completions", content, token);
-            response.EnsureSuccessStatusCode();
+            var request = new HttpRequestMessage(HttpMethod.Post, $"{Url}/v1/chat/completions")
+            {
+                Content = content
+            };
 
-            string responseContent = await response.Content.ReadAsStringAsync(token);
+            using var response = await client.SendAsync(
+                request,
+                HttpCompletionOption.ResponseHeadersRead,
+                token
+            );
+            response.EnsureSuccessStatusCode(); 
 
-            using var doc = JsonDocument.Parse(responseContent);
-            return doc.RootElement
-                      .GetProperty("choices")[0]
-                      .GetProperty("message")
-                      .GetProperty("content")
-                      .GetString() ?? string.Empty;
+            using var stream = await response.Content.ReadAsStreamAsync(token);
+            using var reader = new StreamReader(stream);
+
+            while (!reader.EndOfStream)
+            {
+                token.ThrowIfCancellationRequested();
+
+                var line = await reader.ReadLineAsync(token);
+                if (string.IsNullOrWhiteSpace(line)) continue;
+
+                if (line.StartsWith("data: "))
+                {
+                    var jsonStr = line["data: ".Length..];
+                    if (jsonStr == "[DONE]") break;
+
+                    try
+                    {
+                        using var doc = JsonDocument.Parse(jsonStr);
+                        var delta = doc.RootElement
+                                       .GetProperty("choices")[0]
+                                       .GetProperty("delta")
+                                       .GetProperty("content")
+                                       .GetString();
+
+                        if (!string.IsNullOrEmpty(delta))
+                        {
+                            responseText += delta;
+                            currentState = QueryState.StreamResponse;
+                            Context.API.ChangeQuery(rawQuery, requery: true);
+                        }
+                    }
+                    catch { }
+                }
+            }
         }
 
 
@@ -154,6 +189,7 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
         {
             Idle,
             WaitingResponse,
+            StreamResponse,
             ShowResponse,
             ChoosingModel,
             GetListOfModels,
@@ -174,30 +210,28 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
             var rawQuery = query.RawQuery;
             var result = new List<Result>();
 
-            switch (currentState)
+            return currentState switch
             {
-                case QueryState.Idle:
-                    return HandleIdleState(search, rawQuery);
-
-                case QueryState.ChangingThinkingMode:
-                    return HandleChangingThinkingMode(rawQuery);
-
-                case QueryState.GetListOfModels:
-                    return HandleGetListOfModels(rawQuery);
-
-                case QueryState.ChoosingModel:
-                    return HandleChoosingModelState(rawQuery);
-
-                case QueryState.WaitingResponse:
-                    return HandleWaitingResponseState(rawQuery);
-
-                case QueryState.ShowResponse:
-                    return HandleShowResponseState(rawQuery);
-            }
-
-            return result;
+                QueryState.Idle => HandleIdleState(search, rawQuery),
+                QueryState.ChangingThinkingMode => HandleChangingThinkingMode(rawQuery),
+                QueryState.GetListOfModels => HandleGetListOfModels(rawQuery),
+                QueryState.ChoosingModel => HandleChoosingModelState(rawQuery),
+                QueryState.WaitingResponse => HandleWaitingResponseState(rawQuery),
+                QueryState.StreamResponse => HandleStreamResponseState(rawQuery),
+                QueryState.ShowResponse => HandleShowResponseState(rawQuery),
+                _ => [new Result {
+                        Title = "Unknown state",
+                        SubTitle = "Resetting to idle",
+                        IcoPath = "Images/model.png",
+                        Action = e =>
+                        {
+                            currentState = QueryState.Idle;
+                            Context.API.ChangeQuery(rawQuery, requery: true);
+                            return false;
+                        }
+                    }],
+            };
         }
-
 
         private List<Result> HandleIdleState(string search, string rawQuery)
         {
@@ -217,19 +251,18 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
                         {
                             try
                             {
-                                responseText = await QueryAsync(search, DfModel, localToken);
+                                await ChatCompletionStream(search, DfModel, rawQuery, localToken);
                                 currentState = QueryState.ShowResponse;
                             }
                             catch (OperationCanceledException)
                             {
-                                responseText = "";
                                 waited = 0;
                                 currentState = QueryState.Idle;
                             }
                             catch (Exception ex)
                             {
-                                responseText = $"Error: {ex.Message}";
-                                currentState = QueryState.ShowResponse;
+                                Context.API.ShowNotification("Powertoys run RunLLM !Error", $"Error: {ex.Message}");
+                                currentState = QueryState.Idle;
                             }
 
                             Context.API.ChangeQuery(rawQuery, requery: true);
@@ -290,11 +323,11 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
                 {
                     try
                     {
-                        modelNames = await FetchModelsFromEndpointAsync();
+                        modelNames = await GetModelsLLM();
                     }
                     catch (Exception ex)
                     {
-                        Context.API.ShowMsg("Error", ex.Message);
+                        Context.API.ShowNotification("Powertoys run RunLLM !Error", $"Error: {ex.Message}");
                         currentState = QueryState.Idle;
                     }
                     currentState = QueryState.ChoosingModel;
@@ -393,7 +426,26 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
                     {
                         _cts?.Cancel();
                         waited = 0;
-                        responseText = "";
+                        currentState = QueryState.Idle;
+                        Context.API.ChangeQuery(rawQuery, requery: true);
+                        return true;
+                    }
+                }
+            };
+            return results;
+        }
+        private List<Result> HandleStreamResponseState(string rawQuery)
+        {
+            var results = new List<Result>
+            {
+                new() {
+                    Title = $"{DfModel}: streaming...",
+                    SubTitle = responseText,
+                    IcoPath = "Images/access.png",
+                    Action = e =>
+                    {
+                        _cts?.Cancel();
+                        Clipboard.SetText(responseText);
                         currentState = QueryState.Idle;
                         Context.API.ChangeQuery(rawQuery, requery: true);
                         return true;
@@ -416,7 +468,6 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
                         currentState = QueryState.Idle;
                         Clipboard.SetText(responseText);
                         Context.API.ShowMsg($"Response by: {DfModel}", responseText);
-                        responseText = "";
                         return true;
                     }
                 }
