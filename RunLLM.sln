@@ -4,8 +4,6 @@ VisualStudioVersion = 17.10.35027.167
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Community.PowerToys.Run.Plugin.RunLLM", "Community.PowerToys.Run.Plugin.RunLLM\Community.PowerToys.Run.Plugin.RunLLM.csproj", "{16D99199-91FE-498C-9D36-AF4BB401001A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Community.PowerToys.Run.Plugin.RunLLM.UnitTests", "Community.PowerToys.Run.Plugin.RunLLM.UnitTests\Community.PowerToys.Run.Plugin.RunLLM.UnitTests.csproj", "{F014416D-EF53-45FA-91A0-8AC825DC67C2}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|ARM64 = Debug|ARM64
@@ -22,14 +20,6 @@ Global
 		{16D99199-91FE-498C-9D36-AF4BB401001A}.Release|ARM64.Build.0 = Release|ARM64
 		{16D99199-91FE-498C-9D36-AF4BB401001A}.Release|x64.ActiveCfg = Release|x64
 		{16D99199-91FE-498C-9D36-AF4BB401001A}.Release|x64.Build.0 = Release|x64
-		{F014416D-EF53-45FA-91A0-8AC825DC67C2}.Debug|ARM64.ActiveCfg = Debug|ARM64
-		{F014416D-EF53-45FA-91A0-8AC825DC67C2}.Debug|ARM64.Build.0 = Debug|ARM64
-		{F014416D-EF53-45FA-91A0-8AC825DC67C2}.Debug|x64.ActiveCfg = Debug|x64
-		{F014416D-EF53-45FA-91A0-8AC825DC67C2}.Debug|x64.Build.0 = Debug|x64
-		{F014416D-EF53-45FA-91A0-8AC825DC67C2}.Release|ARM64.ActiveCfg = Release|ARM64
-		{F014416D-EF53-45FA-91A0-8AC825DC67C2}.Release|ARM64.Build.0 = Release|ARM64
-		{F014416D-EF53-45FA-91A0-8AC825DC67C2}.Release|x64.ActiveCfg = Release|x64
-		{F014416D-EF53-45FA-91A0-8AC825DC67C2}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

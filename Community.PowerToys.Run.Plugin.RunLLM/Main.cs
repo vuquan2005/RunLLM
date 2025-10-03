@@ -1,4 +1,3 @@
-using ManagedCommon;
 using Microsoft.PowerToys.Settings.UI.Library;
 using System;
 using System.Collections.Generic;
@@ -28,12 +27,12 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
         private bool Disposed { get; set; }
 
         // Settings
-        private string Url, APIKey, DfModel;
-        private bool UseAPIKeyEndpoint;
+        private string Url,/* APIKey,*/ DfModel;
+        //private bool UseAPIKeyEndpoint;
         private string SystemPrompt = "";
-        public IEnumerable<PluginAdditionalOption> AdditionalOptions => new List<PluginAdditionalOption>()
-        {
-            new PluginAdditionalOption()
+        public IEnumerable<PluginAdditionalOption> AdditionalOptions =>
+        [
+            new()
             {
                 Key = "LLMUrl",
                 DisplayLabel = "LLM URL",
@@ -41,7 +40,7 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
                 PluginOptionType = PluginAdditionalOption.AdditionalOptionType.Textbox,
                 TextValue = "http://localhost:11434",
             },
-            new PluginAdditionalOption()
+            new()
             {
                 Key = "DfModel",
                 DisplayLabel = "Default model",
@@ -49,15 +48,15 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
                 PluginOptionType = PluginAdditionalOption.AdditionalOptionType.Textbox,
                 TextValue = "qwen/qwen3-4b",
             },
-            new PluginAdditionalOption()
-            {
-                Key = "APIKey",
-                DisplayLabel = "Use API Key endpoint. (Comming soon)",
-                DisplayDescription = "Check to use API key and enter your key below",
-                PluginOptionType = PluginAdditionalOption.AdditionalOptionType.CheckboxAndTextbox,
-                TextValue = "YOUR_API_KEY"
-            },
-            new PluginAdditionalOption()
+            //new()
+            //{
+            //    Key = "APIKey",
+            //    DisplayLabel = "Use API Key endpoint. (Comming soon)",
+            //    DisplayDescription = "Check to use API key and enter your key below",
+            //    PluginOptionType = PluginAdditionalOption.AdditionalOptionType.CheckboxAndTextbox,
+            //    TextValue = "YOUR_API_KEY"
+            //},
+            new()
             {
                 Key = "SystemPrompt",
                 DisplayLabel = "System prompt",
@@ -65,7 +64,7 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
                 PluginOptionType = PluginAdditionalOption.AdditionalOptionType.MultilineTextbox,
                 TextValue = SystemPrompt
             }
-        };
+        ];
 
         public void UpdateSettings(PowerLauncherPluginSettings settings)
         {
@@ -74,9 +73,9 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
                 Url = settings.AdditionalOptions.FirstOrDefault(x => x.Key == "LLMUrl")?.TextValue ?? "http://localhost:11434";
                 DfModel = settings.AdditionalOptions.FirstOrDefault(x => x.Key == "DfModel")?.TextValue ?? "qwen/qwen3-4b";
 
-                var apiOption = settings.AdditionalOptions.FirstOrDefault(x => x.Key == "APIKey");
-                UseAPIKeyEndpoint = apiOption != null && apiOption.Value is bool b2 && b2;
-                APIKey = apiOption?.TextValue ?? "";
+                //var apiOption = settings.AdditionalOptions.FirstOrDefault(x => x.Key == "APIKey");
+                //UseAPIKeyEndpoint = apiOption != null && apiOption.Value is bool b2 && b2;
+                //APIKey = apiOption?.TextValue ?? "";
 
                 SystemPrompt = settings.AdditionalOptions.FirstOrDefault(x => x.Key == "SystemPrompt")?.TextValue ?? SystemPrompt;
             }
@@ -246,6 +245,7 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
                         _cts?.Cancel();
                         _cts = new CancellationTokenSource();
                         var localToken = _cts.Token;
+                        responseText = "";
 
                         _ = Task.Run(async () =>
                         {
@@ -439,9 +439,9 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
             var results = new List<Result>
             {
                 new() {
-                    Title = $"{DfModel}: streaming...",
+                    Title = $"\U0001F500 {DfModel}: streaming...",
                     SubTitle = responseText,
-                    IcoPath = "Images/access.png",
+                    IcoPath = "Images/transfer.png",
                     Action = e =>
                     {
                         _cts?.Cancel();
@@ -460,14 +460,14 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
             var results = new List<Result>
             {
                 new() {
-                    Title = $"Response by: {DfModel}:",
+                    Title = $"\u2705 Response by: {DfModel}:",
                     SubTitle = responseText,
                     IcoPath = "Images/access.png",
                     Action = e =>
                     {
                         currentState = QueryState.Idle;
                         Clipboard.SetText(responseText);
-                        Context.API.ShowMsg($"Response by: {DfModel}", responseText);
+                        Context.API.ShowMsg($"Response by: {DfModel}", responseText, "", false);
                         return true;
                     }
                 }
