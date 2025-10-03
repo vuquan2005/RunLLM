@@ -19,7 +19,7 @@ RunLLM integrates Large Language Models (LLMs) into PowerToys Run, enabling dire
 
 1. **Download**: Get the release files, including `Community.PowerToys.Run.Plugin.RunLLM.dll`.
 2. **Decompress and Copy**: Place the files in:  
-   `%LocalAppData%\Microsoft\PowerToys\PowerToys Run\Plugins\RunLLM`
+   `%LocalAppData%\Microsoft\PowerToys\PowerToys Run\Plugins`
 
    Example structure:
    ```
