@@ -1,59 +1,49 @@
-# RunLLM Plugin for PowerToys Run
+# RunLLM - PowerToys Run Plugin
 
 [![Build](https://github.com/vuquan2005/RunLLM/actions/workflows/build.yml/badge.svg)](https://github.com/vuquan2005/RunLLM/actions/workflows/build.yml)
+[![Release](https://img.shields.io/github/v/release/vuquan2005/RunLLM)](https://github.com/vuquan2005/RunLLM/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> 🤖 Chat with LLMs directly from PowerToys Run!
+> 🤖 Chat with Large Language Models directly from PowerToys Run
 
-RunLLM integrates Large Language Models into PowerToys Run, enabling direct AI interaction from the search bar. It supports any service with an OpenAI API-style endpoint (Ollama, LMStudio, OpenAI, etc.).
+## Features
 
-![Demo](docs/demo.gif)
+- **Streaming Responses** - Real-time text streaming from LLMs
+- **Model Switching** - Switch between models without leaving PowerToys Run
+- **Thinking Mode** - Toggle reasoning with `/think` (Qwen3) or `enable_thinking` (OpenAI)
+- **Endpoint Switching** - Change API endpoint on-the-fly with validation
+- **API Key Support** - Works with OpenAI, OpenRouter, and other authenticated APIs
+- **Custom System Prompt** - Define your own instructions
 
-## ✨ Features
+## Requirements
 
-- 💬 **Stream Chat**: Real-time streaming responses from LLMs
-- 🔄 **Model Switching**: Switch between available models on-the-fly
-- 🧠 **Thinking Mode**: Toggle reasoning mode with `/think` or `/no_think`
-- 📝 **Custom System Prompt**: Define your own system instructions
-- 📋 **Quick Copy**: Copy responses to clipboard instantly
-- ⚙️ **Fully Configurable**: Set API URL, default model, and more
-
-## 📦 Requirements
-
-- [PowerToys](https://github.com/microsoft/PowerToys) v0.70.0 or later
-- Any OpenAI-compatible LLM service:
-  - [Ollama](https://ollama.ai) (recommended for local)
+- [PowerToys](https://github.com/microsoft/PowerToys) v0.70.0+
+- OpenAI-compatible LLM server:
+  - [Ollama](https://ollama.ai) (local, recommended)
   - [LM Studio](https://lmstudio.ai)
-  - OpenAI API
-  - Any `/v1/chat/completions` compatible endpoint
+  - OpenAI API / OpenRouter
 
-## 🔧 Installation
+## Installation
 
-### Option 1: Download Release (Recommended)
+### From Release
 
-1. Download the latest release from [Releases](https://github.com/vuquan2005/RunLLM/releases)
-2. Extract to: `%LocalAppData%\Microsoft\PowerToys\PowerToys Run\Plugins\RunLLM`
+1. Download latest ZIP from [Releases](https://github.com/vuquan2005/RunLLM/releases)
+2. Extract to `%LocalAppData%\Microsoft\PowerToys\PowerToys Run\Plugins\RunLLM`
 3. Restart PowerToys
 
-**Expected folder structure after extraction:**
+**Folder structure after extraction:**
 
 ```
-%LocalAppData%\Microsoft\PowerToys\PowerToys Run\Plugins\
+Plugins/
 └── RunLLM/
     ├── Community.PowerToys.Run.Plugin.RunLLM.dll
     ├── Community.PowerToys.Run.Plugin.RunLLM.deps.json
     ├── plugin.json
     └── Images/
-        ├── access.png
-        ├── brain.png
-        ├── change.png
-        ├── model.png
-        ├── run.png
-        ├── timer.png
-        └── transfer.png
+        └── *.png
 ```
 
-### Option 2: Build from Source
+### From Source
 
 ```powershell
 git clone https://github.com/vuquan2005/RunLLM.git
@@ -61,69 +51,58 @@ cd RunLLM
 .\scripts\dev.ps1
 ```
 
-## ⚙️ Configuration
+## Usage
 
-Open **PowerToys Settings** → **PowerToys Run** → **Plugins** → **RunLLM**:
+Open PowerToys Run (`Alt + Space`) and type:
+
+| Command | Action |
+|---------|--------|
+| `runllm <question>` | Ask the LLM |
+| `runllm` → Change Model | Switch between available models |
+| `runllm` → Thinking Mode | Toggle thinking, select mode type |
+| `runllm` → Change Endpoint | Validate and set new API URL |
+
+### Examples
+
+```
+runllm What is the capital of France?
+runllm Explain async/await in JavaScript
+runllm Write a Python function to reverse a string
+```
+
+## Configuration
+
+Go to **PowerToys Settings** → **PowerToys Run** → **Plugins** → **RunLLM**:
 
 | Setting | Description | Default |
 |---------|-------------|---------|
 | LLM URL | API endpoint | `http://localhost:11434` |
-| Default Model | Model to use | `qwen/qwen3-4b` |
+| Default Model | Model name | `qwen/qwen3-4b` |
+| API Key | Enable + enter key | (disabled) |
+| Enable Thinking | Toggle thinking mode | Off |
 | System Prompt | Custom instructions | (empty) |
 
-## 🚀 Usage
+## Development
 
-1. Press `Alt + Space` to open PowerToys Run
-2. Type your query:
-
-```
-runllm What is the capital of France?
-```
-
-### Commands
-
-| Command | Description |
-|---------|-------------|
-| `runllm <query>` | Ask the LLM |
-| `runllm` → "Change model" | Switch to a different model |
-| `runllm` → "Thinking mode" | Toggle `/think` or `/no_think` |
-
-### Tips
-
-- ✅ Enable **Include in global result** to chat without typing `runllm`
-- 📋 Press `Enter` on a response to copy it to clipboard
-- 🔄 Model changes persist during the session
-
-## 🛠️ Development
-
-See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for development setup and build instructions.
+See [DEVELOPMENT.md](docs/DEVELOPMENT.md) for build instructions.
 
 ```powershell
-# Quick start
-.\scripts\dev.ps1          # Build + Deploy + Restart PowerToys
-.\scripts\build.ps1        # Build only
-.\scripts\deploy.ps1       # Deploy only
-.\scripts\clean.ps1 -All   # Clean everything
+.\scripts\dev.ps1      # Build + Deploy + Restart
+.\scripts\build.ps1    # Build only
+.\scripts\clean.ps1    # Clean artifacts
 ```
 
-## 📁 Project Structure
+## Architecture
 
 ```
-RunLLM/
-├── scripts/        # Automation scripts
-├── src/            # Source code
-├── docs/           # Documentation
-└── .github/        # GitHub Actions
+src/
+├── Main.cs            # Plugin entry point
+├── QueryHandler.cs    # State machine, UI handlers
+├── LLMClient.cs       # HTTP client, streaming
+├── PluginSettings.cs  # Settings management
+└── Constants.cs       # Default values
 ```
 
-## 🤝 Contributing
-
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch
-3. Submit a Pull Request
-
-## 📜 License
+## License
 
 MIT License - see [LICENSE.txt](LICENSE.txt)
