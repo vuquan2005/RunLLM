@@ -1,0 +1,75 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.0.0)'
+        required: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    strategy:
+      matrix:
+        platform: [x64, ARM64]
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore src/Community.PowerToys.Run.Plugin.RunLLM.csproj
+
+    - name: Build
+      run: dotnet build src/Community.PowerToys.Run.Plugin.RunLLM.csproj -c Release -p:Platform=${{ matrix.platform }} --no-restore
+
+    - name: Get version
+      id: version
+      shell: pwsh
+      run: |
+        $json = Get-Content src/plugin.json | ConvertFrom-Json
+        echo "VERSION=$($json.Version)" >> $env:GITHUB_OUTPUT
+
+    - name: Create ZIP
+      shell: pwsh
+      run: |
+        $outDir = "src/bin/${{ matrix.platform }}/Release"
+        $framework = Get-ChildItem $outDir -Directory | Select-Object -First 1 -ExpandProperty Name
+        $source = "$outDir/$framework"
+        Compress-Archive -Path "$source/*" -DestinationPath "RunLLM-${{ steps.version.outputs.VERSION }}-${{ matrix.platform }}.zip"
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: RunLLM-${{ steps.version.outputs.VERSION }}-${{ matrix.platform }}
+        path: RunLLM-*.zip
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: artifacts/**/*.zip
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

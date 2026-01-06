@@ -6,7 +6,7 @@
   "Author": "VuQuan",
   "Version": "0.87.0",
   "Language": "csharp",
-  "Website": "https://github.com/VuQuan/Community.PowerToys.Run.Plugin.RunLLM",
+  "Website": "https://github.com/vuquan2005/RunLLM",
   "ExecuteFileName": "Community.PowerToys.Run.Plugin.RunLLM.dll",
   "IcoPathDark": "Images\\model.png",
   "IcoPathLight": "Images\\model.png",

@@ -1,0 +1,46 @@
+name: Build
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    strategy:
+      matrix:
+        platform: [x64, ARM64]
+        configuration: [Release]
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore src/Community.PowerToys.Run.Plugin.RunLLM.csproj
+
+    - name: Build
+      run: dotnet build src/Community.PowerToys.Run.Plugin.RunLLM.csproj -c ${{ matrix.configuration }} -p:Platform=${{ matrix.platform }} --no-restore
+
+    - name: Get version
+      id: version
+      shell: pwsh
+      run: |
+        $json = Get-Content src/plugin.json | ConvertFrom-Json
+        echo "VERSION=$($json.Version)" >> $env:GITHUB_OUTPUT
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: RunLLM-${{ steps.version.outputs.VERSION }}-${{ matrix.platform }}
+        path: src/bin/${{ matrix.platform }}/${{ matrix.configuration }}/net9.0-windows*/**
+        if-no-files-found: error

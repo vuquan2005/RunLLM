@@ -1,67 +1,111 @@
 # RunLLM Plugin for PowerToys Run
 
-RunLLM integrates Large Language Models (LLMs) into PowerToys Run, enabling direct AI interaction from the search bar. It supports any service with an OpenAI API-style endpoint (e.g., Ollama, LMStudio).
+[![Build](https://github.com/vuquan2005/RunLLM/actions/workflows/build.yml/badge.svg)](https://github.com/vuquan2005/RunLLM/actions/workflows/build.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+> 🤖 Chat with LLMs directly from PowerToys Run!
+
+RunLLM integrates Large Language Models into PowerToys Run, enabling direct AI interaction from the search bar. It supports any service with an OpenAI API-style endpoint (Ollama, LMStudio, OpenAI, etc.).
+
+![Demo](docs/demo.gif)
 
 ## ✨ Features
 
-- 💬 **Chat with LLMs**: Send prompts and receive streaming responses.
-- 🔄 **Switch Models**: List and switch between available models from the API.
-- 🧠 **Thinking Mode**: Toggle reasoning mode with `/think` or `/no_think`.
-- 📝 **Custom System Prompt**: Define custom system instructions.
-- 📋 **Quick Copy**: Copy full or partial responses.
-- ⚙️ **Configurable**: Set API URL, default model, and system prompt.
+- 💬 **Stream Chat**: Real-time streaming responses from LLMs
+- 🔄 **Model Switching**: Switch between available models on-the-fly
+- 🧠 **Thinking Mode**: Toggle reasoning mode with `/think` or `/no_think`
+- 📝 **Custom System Prompt**: Define your own system instructions
+- 📋 **Quick Copy**: Copy responses to clipboard instantly
+- ⚙️ **Fully Configurable**: Set API URL, default model, and more
 
 ## 📦 Requirements
 
-- Any OpenAI-style service (e.g., Ollama, LMStudio).
+- [PowerToys](https://github.com/microsoft/PowerToys) v0.70.0 or later
+- Any OpenAI-compatible LLM service:
+  - [Ollama](https://ollama.ai) (recommended for local)
+  - [LM Studio](https://lmstudio.ai)
+  - OpenAI API
+  - Any `/v1/chat/completions` compatible endpoint
 
 ## 🔧 Installation
 
-1. **Download**: Get the release files, including `Community.PowerToys.Run.Plugin.RunLLM.dll`.
-2. **Decompress and Copy**: Place the files in:  
-   `%LocalAppData%\Microsoft\PowerToys\PowerToys Run\Plugins`
+### Option 1: Download Release (Recommended)
 
-   Example structure:
-   ```
-   RunLLM/
-   ├── Community.PowerToys.Run.Plugin.RunLLM.dll
-   └── Images/
-       ├── model.png
-       ├── run.png
-       ├── change.png
-       ├── brain.png
-       ├── timer.png
-       ├── transfer.png
-       └── access.png
-   ```
+1. Download the latest release from [Releases](https://github.com/vuquan2005/RunLLM/releases)
+2. Extract to: `%LocalAppData%\Microsoft\PowerToys\PowerToys Run\Plugins\RunLLM`
+3. Restart PowerToys
 
-3. **Restart PowerToys**: Ensure PowerToys is restarted to load the plugin.
+### Option 2: Build from Source
+
+```powershell
+git clone https://github.com/vuquan2005/RunLLM.git
+cd RunLLM
+.\scripts\dev.ps1
+```
 
 ## ⚙️ Configuration
 
-In **PowerToys Settings** → **PowerToys Run** → **RunLLM**:
+Open **PowerToys Settings** → **PowerToys Run** → **Plugins** → **RunLLM**:
 
-- 🌐 **LLM URL**: Set the API endpoint (e.g., `http://localhost:11434` for Ollama).
-- 🏷️ **Default Model**: Specify the default model (e.g., `qwen/qwen3-4b`, `llama3.1:70b`, `gpt-oss:latest`).
+| Setting | Description | Default |
+|---------|-------------|---------|
+| LLM URL | API endpoint | `http://localhost:11434` |
+| Default Model | Model to use | `qwen/qwen3-4b` |
+| System Prompt | Custom instructions | (empty) |
 
 ## 🚀 Usage
 
-1. Open PowerToys Run: `Alt + Space`.
+1. Press `Alt + Space` to open PowerToys Run
 2. Type your query:
-   ```
-   runllm What is the capital of France?
-   ```
 
-## 📝 Notes
+```
+runllm What is the capital of France?
+```
 
-- ✅ If **Include in global result** is enabled, you can chat without typing `runllm`.
-- 🔑 Use the `runllm` keyword to change models or toggle thought mode, regardless of global result settings.
-- ⚠️ Ensure your LLM service supports `/v1/models` and `/v1/chat/completions` endpoints.
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `runllm <query>` | Ask the LLM |
+| `runllm` → "Change model" | Switch to a different model |
+| `runllm` → "Thinking mode" | Toggle `/think` or `/no_think` |
+
+### Tips
+
+- ✅ Enable **Include in global result** to chat without typing `runllm`
+- 📋 Press `Enter` on a response to copy it to clipboard
+- 🔄 Model changes persist during the session
+
+## 🛠️ Development
+
+See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for development setup and build instructions.
+
+```powershell
+# Quick start
+.\scripts\dev.ps1          # Build + Deploy + Restart PowerToys
+.\scripts\build.ps1        # Build only
+.\scripts\deploy.ps1       # Deploy only
+.\scripts\clean.ps1 -All   # Clean everything
+```
+
+## 📁 Project Structure
+
+```
+RunLLM/
+├── scripts/        # Automation scripts
+├── src/            # Source code
+├── docs/           # Documentation
+└── .github/        # GitHub Actions
+```
 
 ## 🤝 Contributing
 
-Contributions are welcome! Submit issues or PRs at the [GitHub Repo](https://github.com).
+Contributions are welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch
+3. Submit a Pull Request
 
 ## 📜 License
 
-MIT License – see [LICENSE](https://github.com).
+MIT License - see [LICENSE.txt](LICENSE.txt)

@@ -144,7 +144,7 @@ namespace Community.PowerToys.Run.Plugin.RunLLM
                 HttpCompletionOption.ResponseHeadersRead,
                 token
             );
-            response.EnsureSuccessStatusCode(); 
+            response.EnsureSuccessStatusCode();
 
             using var stream = await response.Content.ReadAsStreamAsync(token);
             using var reader = new StreamReader(stream);
