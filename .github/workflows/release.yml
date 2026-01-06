@@ -46,6 +46,12 @@ jobs:
         $outDir = "src/bin/${{ matrix.platform }}/Release"
         $framework = Get-ChildItem $outDir -Directory | Select-Object -First 1 -ExpandProperty Name
         $source = "$outDir/$framework"
+        
+        # Remove unnecessary files (debug symbols and bundled dependencies)
+        Remove-Item "$source/*.pdb" -Force -ErrorAction SilentlyContinue
+        Remove-Item "$source/PowerToys*.dll" -Force -ErrorAction SilentlyContinue
+        Remove-Item "$source/Wox.*.dll" -Force -ErrorAction SilentlyContinue
+        
         Compress-Archive -Path "$source/*" -DestinationPath "RunLLM-${{ steps.version.outputs.VERSION }}-${{ matrix.platform }}.zip"
 
     - name: Upload artifact
