@@ -4,7 +4,7 @@
   "IsGlobal": false,
   "Name": "RunLLM",
   "Author": "VuQuan",
-  "Version": "0.87.0",
+  "Version": "2.1.0",
   "Language": "csharp",
   "Website": "https://github.com/vuquan2005/RunLLM",
   "ExecuteFileName": "Community.PowerToys.Run.Plugin.RunLLM.dll",

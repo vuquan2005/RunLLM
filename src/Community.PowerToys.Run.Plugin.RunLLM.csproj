@@ -5,9 +5,24 @@
     <UseWPF>true</UseWPF>
     <Platforms>x64;ARM64</Platforms>
     <PlatformTarget>$(Platform)</PlatformTarget>
-
-	<FileVersion>1.3.1</FileVersion>
   </PropertyGroup>
+
+  <Target Name="ReadPluginVersion" BeforeTargets="BeforeBuild">
+    <PropertyGroup>
+      <PluginJsonPath>$(MSBuildProjectDirectory)\plugin.json</PluginJsonPath>
+    </PropertyGroup>
+    <ReadLinesFromFile File="$(PluginJsonPath)">
+      <Output TaskParameter="Lines" ItemName="PluginJsonLines"/>
+    </ReadLinesFromFile>
+    <PropertyGroup>
+      <PluginJsonContent>@(PluginJsonLines)</PluginJsonContent>
+      <VersionLine>$([System.Text.RegularExpressions.Regex]::Match($(PluginJsonContent), '"Version":\s*"([^"]+)"').Groups[1].Value)</VersionLine>
+      <FileVersion Condition="'$(VersionLine)' != ''">$(VersionLine)</FileVersion>
+      <Version Condition="'$(VersionLine)' != ''">$(VersionLine)</Version>
+      <AssemblyVersion Condition="'$(VersionLine)' != ''">$(VersionLine)</AssemblyVersion>
+    </PropertyGroup>
+    <Message Text="Plugin version from plugin.json: $(FileVersion)" Importance="high"/>
+  </Target>
 
   <ItemGroup>
     <PackageReference Include="Community.PowerToys.Run.Plugin.Dependencies" Version="0.93.0" />
