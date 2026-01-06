@@ -35,6 +35,24 @@ RunLLM integrates Large Language Models into PowerToys Run, enabling direct AI i
 2. Extract to: `%LocalAppData%\Microsoft\PowerToys\PowerToys Run\Plugins\RunLLM`
 3. Restart PowerToys
 
+**Expected folder structure after extraction:**
+
+```
+%LocalAppData%\Microsoft\PowerToys\PowerToys Run\Plugins\
+└── RunLLM/
+    ├── Community.PowerToys.Run.Plugin.RunLLM.dll
+    ├── Community.PowerToys.Run.Plugin.RunLLM.deps.json
+    ├── plugin.json
+    └── Images/
+        ├── access.png
+        ├── brain.png
+        ├── change.png
+        ├── model.png
+        ├── run.png
+        ├── timer.png
+        └── transfer.png
+```
+
 ### Option 2: Build from Source
 
 ```powershell
